@@ -12,7 +12,7 @@ def fmt(v):
     return "n/a" if v is None else f"{v:.3f}"
 
 
-def build_scorecard(result: AuditResult, path: str) -> str:
+def build_scorecard(result: AuditResult, path: str, stability: dict | None = None) -> str:
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle("SmallNote", parent=styles["Normal"], fontSize=8, leading=11,
                               textColor=colors.HexColor("#475569")))
@@ -29,7 +29,8 @@ def build_scorecard(result: AuditResult, path: str) -> str:
     story.append(Paragraph(
         f"Accuracy {result.accuracy:.3f} &nbsp; Balanced accuracy {result.balanced_accuracy:.3f} &nbsp; "
         f"ROC AUC {result.roc_auc:.3f}<br/>UCI cost / held-out case: {result.cost_per_case:.3f} "
-        "(bad predicted good = 5; good predicted bad = 1).", styles["Normal"]))
+        "(bad predicted good = 5; good predicted bad = 1; the model is not trained to this cost).",
+        styles["Normal"]))
     story.append(Spacer(1, 12))
     rows = [["Group comparison", "Selection gap", "Min/max ratio", "TPR gap"]]
     for fr in result.fairness:
@@ -54,6 +55,20 @@ def build_scorecard(result: AuditResult, path: str) -> str:
             detail.append([f"{fr.attribute} / {g.group}", f"{g.count} / {g.positive_count}",
                            fmt(g.selection_rate), f"{g.selection_low:.3f} to {g.selection_high:.3f}", fmt(g.tpr)])
     story.append(table(detail, [166, 88, 65, 125, 75]))
+    if stability:
+        s = stability["sweep"]
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(
+            f"<b>Split stability, seeds {stability['sweep_seeds'][0]} to {stability['sweep_seeds'][1]}</b> "
+            f"(mean +/- sd; range): accuracy {s['accuracy']['mean']:.3f} +/- {s['accuracy']['sd']:.3f}; "
+            f"sex selection gap {s['sex_selection_gap']['mean']:.3f} +/- {s['sex_selection_gap']['sd']:.3f} "
+            f"({s['sex_selection_gap']['min']:.3f} to {s['sex_selection_gap']['max']:.3f}); "
+            f"age TPR gap {s['age_tpr_gap']['mean']:.3f} +/- {s['age_tpr_gap']['sd']:.3f} "
+            f"({s['age_tpr_gap']['min']:.3f} to {s['age_tpr_gap']['max']:.3f}); "
+            f"lowest min/max selection ratio {s['min_disparate_impact']['mean']:.3f} "
+            f"({s['min_disparate_impact']['min']:.3f} to {s['min_disparate_impact']['max']:.3f}).<br/>"
+            "Descriptive split sensitivity only, not a confidence interval, significance test or independent validation.",
+            styles["SmallNote"]))
     story.append(Spacer(1, 10))
     small = [f"{escape(h.feature)} / {escape(h.protected_attribute)}: {h.correlation:.2f} ({escape(h.method)})"
              for h in result.proxies[:3]]
@@ -63,8 +78,8 @@ def build_scorecard(result: AuditResult, path: str) -> str:
     story.append(Spacer(1, 9))
     story.append(Paragraph(
         "<b>Read before acting.</b> Selection means a model good-risk prediction, not an observed loan approval. "
-        "The age cutoff of 25 is illustrative. Small groups have unstable estimates. Intervals are per-group, "
-        "not confidence intervals for gaps or corrected for multiple comparisons. Historical labels may encode bias. "
+        "The age cutoff of 25 is illustrative. Small groups have unstable estimates. Per-group Wilson intervals "
+        "are not confidence intervals for gaps, simultaneous intervals or corrected for multiple comparisons. Historical labels may encode bias. "
         "Sex is derived from the source's limited combined status/sex codes. Association is not causation. "
         "This 1994 German benchmark does not validate an Indian lender or certify fairness, legality or RBI compliance.",
         styles["SmallNote"]))
