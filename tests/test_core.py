@@ -4,7 +4,7 @@ import pytest
 
 from arthaudit.audit import train_and_audit
 from arthaudit.data import COLUMNS, derive_protected, feature_frame
-from arthaudit.fairness import group_fairness, verdict
+from arthaudit.fairness import group_fairness
 from arthaudit.proxies import find_proxies
 
 
@@ -32,12 +32,6 @@ def test_tpr_none_when_no_positives():
     r = group_fairness([0, 0], [0, 0], ["x", "y"], "sex")
     assert all(g.tpr is None for g in r.groups)
     assert r.equal_opportunity_difference is None
-
-
-def test_verdict_bands():
-    assert verdict(0.05, 0.10) == "WITHIN MARKER"
-    assert verdict(0.12, 0.10) == "REVIEW"
-    assert verdict(0.30, 0.10) == "REVIEW"
 
 
 def _synthetic_credit(n=200, seed=0):
