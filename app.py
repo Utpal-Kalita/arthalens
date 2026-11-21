@@ -114,7 +114,16 @@ else:
         fr=next(f for f in result.fairness if f.attribute==attribute)
         metrics(fr)
         chart=pd.DataFrame({"Group":[g.group for g in fr.groups],"Selection rate":[g.selection_rate for g in fr.groups],"True-positive rate":[g.tpr for g in fr.groups]}).set_index("Group")
-        st.bar_chart(chart,color=["#1c6e75","#d8ad68"],height=265)
+        rates = chart.reset_index().melt("Group", var_name="Measure", value_name="Rate")
+        comparison = alt.Chart(rates).mark_bar().encode(
+            x=alt.X("Group:N", title="Audit group"),
+            xOffset="Measure:N",
+            y=alt.Y("Rate:Q", scale=alt.Scale(domain=[0, 1]), title="Rate", axis=alt.Axis(format=".0%")),
+            color=alt.Color("Measure:N", scale=alt.Scale(domain=["Selection rate", "True-positive rate"],
+                                                       range=["#1c6e75", "#d8ad68"])),
+            tooltip=["Group:N", "Measure:N", alt.Tooltip("Rate:Q", format=".1%")]
+        ).properties(height=265)
+        st.altair_chart(comparison, width="stretch")
         render_groups(fr)
         with st.expander("How to read these measures"):
             st.write("Selection gap = largest minus smallest selection rate. Min/max ratio = smallest divided by largest selection rate. TPR gap compares selection among records with a historical good-risk label. Gaps need context; neither a small gap nor a high ratio proves fairness.")
