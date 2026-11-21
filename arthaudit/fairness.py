@@ -66,11 +66,3 @@ def group_fairness(y_true, y_pred, groups, attribute: str) -> FairnessResult:
         if all(t is not None for t in tprs):
             result.equal_opportunity_difference = max(tprs) - min(tprs)
     return result
-
-
-def verdict(value: float | None, threshold: float, lower_is_better: bool = True) -> str:
-    """A user-selected review marker, never a pass/fail certification."""
-    if value is None:
-        return "UNDEFINED"
-    outside = value > threshold if lower_is_better else value < threshold
-    return "REVIEW" if outside else "WITHIN MARKER"
