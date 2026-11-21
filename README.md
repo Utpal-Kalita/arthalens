@@ -150,3 +150,7 @@ tests/                    synthetic fixtures and regression tests
 ```
 
 Built for Arthaton as a scoped prototype. No bank validation, regulator endorsement or compliance certification is claimed.
+
+## Demo video
+
+https://youtu.be/AsIRX8kecBk
