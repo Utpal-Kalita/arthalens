@@ -2,6 +2,8 @@
 
 A small, local-first workbench for reviewing binary credit-model predictions. It puts group disparities, denominators, uncertainty and one-record explanations in the same review flow, then exports a one-page evidence summary.
 
+It is built for a risk or compliance reviewer at a small lender or NBFC checking a model before sign-off. "Selection" here means a model good-risk prediction at the displayed threshold, not an observed approval. ArthaLens brings per-group denominators and rate intervals, checked one-record explanations, a one-page evidence summary and split-sensitivity reporting into one local review workflow. It builds on standard fairness definitions rather than claiming new metrics.
+
 **Prototype, not a lending service or compliance certificate.** No bank or Indian borrower portfolio has been tested. The included example uses the historical UCI Statlog German Credit benchmark.
 
 ## What works
@@ -12,6 +14,7 @@ A small, local-first workbench for reviewing binary credit-model predictions. It
 - Exploratory training-split feature association screening using absolute Pearson correlation for numeric features and Cramer's V for nominal features.
 - One-record linear, independent-background SHAP-style log-odds contributions, with an exact reconstruction check.
 - Threshold exploration on the fixed holdout. It shows tradeoffs; it is not a deployment-policy optimizer.
+- Split-stability reporting: a 30-seed sweep for the headline gaps (`examples/seed_sweep.py`), because a gap measured on one split is not an established finding.
 - Existing-model review through a strict three-column prediction CSV.
 - One-page downloadable PDF summary with limitations attached to the numbers.
 
@@ -35,7 +38,7 @@ python -m pytest tests -q
 python -m examples.run_audit
 ```
 
-The CLI downloads the real benchmark and writes `out/scorecard.pdf`. Tests generate explicitly synthetic fixtures and do not require internet access. They check schema parsing, protected-code mappings, invalid inputs, undefined metric cases, category handling, train/test consistency, reproducibility, nominal association invariance and explanation reconstruction.
+The CLI downloads the real benchmark and writes `out/scorecard.pdf`. Tests generate explicitly synthetic fixtures and do not require internet access. They check schema parsing, protected-code mappings, invalid inputs, undefined metric cases, category handling, train/test consistency, reproducibility, nominal association invariance, explanation reconstruction, threshold bounds, PDF generation and explanation row bounds. If `fairlearn` is installed, one extra test cross-checks the group metrics against its reference implementation.
 
 ## Audit your model's predictions
 
@@ -65,7 +68,7 @@ Source: [UCI Statlog German Credit, dataset 144](https://archive.ics.uci.edu/dat
 - Age, combined personal-status/sex, foreign-worker status and all derived audit attributes are excluded from model inputs. This exclusion alone does not establish fairness.
 - Numeric features are standardized and nominal categories one-hot encoded using training rows only. Unseen categories are ignored by the fitted encoder.
 - Model: scikit-learn logistic regression, C=1, max_iter=2000, probability threshold 0.50 by default. This is a demonstration baseline, not an optimized credit model.
-- UCI's asymmetric error matrix is reported: a bad-risk label predicted good costs 5; a good-risk label predicted bad costs 1. The displayed per-case error cost uses that matrix, not currency.
+- UCI's asymmetric error matrix is reported: a bad-risk label predicted good costs 5; a good-risk label predicted bad costs 1. The displayed per-case error cost uses that matrix, not currency. The model is trained on plain log loss, not cost-sensitively, so the cost figure is not decision-calibrated.
 
 ## Metric definitions
 
@@ -108,6 +111,17 @@ On the retrieved 1,000-row UCI dataset, seed 42, threshold 0.50 and the recorded
 
 Changing the split or threshold changes these figures. Exploring several thresholds on the holdout does not turn it into fresh validation data.
 
+### Stability across splits
+
+The figures above come from one split. Re-running the same pipeline across 30 split seeds (`python -m examples.seed_sweep`, seeds 1 to 30, deterministic):
+
+- Accuracy: mean 0.747 (sd 0.019), range 0.717 to 0.780.
+- Sex selection gap: mean 0.056 (sd 0.034), range 0.008 to 0.105.
+- Age-group TPR gap: mean 0.139 (sd 0.077), range 0.008 to 0.288.
+- Lowest min/max selection ratio across attributes: mean 0.820, range 0.669 to 0.925.
+
+The sweep is descriptive sensitivity analysis, not a confidence interval, hypothesis test or independent validation. Seeds reuse the same 1,000 historical records. It shows why one split must not stand in for evidence from a relevant lending population.
+
 ## Models, APIs and privacy
 
 - Local model: scikit-learn logistic regression. No LLM or hosted inference API is used.
@@ -118,7 +132,7 @@ Changing the split or threshold changes these figures. Exploring several thresho
 
 ## Limits and next steps
 
-The demo does not cover intersectional fairness, calibration by group, confidence intervals for gaps, causal discrimination, longitudinal stability or validated mitigation. The historical German dataset cannot establish performance or fairness for a present-day Indian lender. Before any real lending use: use lawfully collected relevant data, validate labels, evaluate negative-class error disparities and business costs, use separate validation, involve affected users/domain/legal reviewers, and conduct security/privacy review.
+The demo does not cover intersectional fairness, calibration by group, causal discrimination, longitudinal stability or validated mitigation. Confidence intervals for disparity gaps are not implemented; the rate intervals are per-group Wilson intervals. The historical German dataset cannot establish performance or fairness for a present-day Indian lender. Before any real lending use: use lawfully collected relevant data, validate labels, evaluate negative-class error disparities and business costs, use separate validation, involve affected users/domain/legal reviewers, and conduct security/privacy review.
 
 ## Project layout
 
@@ -131,6 +145,7 @@ arthaudit/proxies.py      exploratory association screen
 arthaudit/explain.py      checked additive linear explanations
 arthaudit/report.py       one-page evidence summary
 examples/run_audit.py     reproducible CLI example
+examples/seed_sweep.py    descriptive split-stability sweep
 tests/                    synthetic fixtures and regression tests
 ```
 
